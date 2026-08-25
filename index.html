@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Generador de Letras LED 3D</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#0e1116">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Letras LED">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --line:#2a3340;
+    --tx:#e6edf3; --mut:#8b97a7; --acc:#ffb020; --acc2:#39d0d8; --danger:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--tx);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column; min-height:100vh;
+  }
+  header{
+    padding:14px 16px; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; gap:10px; background:var(--panel);
+  }
+  header .dot{width:12px;height:12px;border-radius:50%;background:var(--acc);
+    box-shadow:0 0 10px var(--acc),0 0 22px var(--acc);}
+  header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
+  header small{color:var(--mut);font-size:12px;margin-left:auto}
+  .wrap{display:flex;flex:1;min-height:0;flex-direction:column}
+  @media(min-width:900px){ .wrap{flex-direction:row} }
+  /* preview */
+  #stage{position:relative;flex:1;min-height:46vh;background:
+    radial-gradient(1200px 500px at 50% -10%,#1a2230 0%,#0e1116 60%);}
+  #stage canvas{display:block;width:100%;height:100%}
+  #hint{position:absolute;left:12px;bottom:10px;color:var(--mut);font-size:11px;
+    background:rgba(0,0,0,.35);padding:4px 8px;border-radius:6px;pointer-events:none}
+  #dims{position:absolute;right:12px;top:10px;color:var(--acc2);font-size:12px;
+    background:rgba(0,0,0,.35);padding:4px 8px;border-radius:6px;font-variant-numeric:tabular-nums}
+  /* panel */
+  .panel{width:100%;background:var(--panel);border-top:1px solid var(--line);
+    padding:14px;overflow:auto}
+  @media(min-width:900px){ .panel{width:360px;border-top:0;border-left:1px solid var(--line)} }
+  .grp{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .grp:last-child{border-bottom:0}
+  label{display:block;font-size:12px;color:var(--mut);margin:0 0 5px}
+  input[type=text]{width:100%;padding:10px 12px;background:var(--panel2);border:1px solid var(--line);
+    color:var(--tx);border-radius:9px;font-size:15px;outline:none}
+  input[type=text]:focus{border-color:var(--acc)}
+  select{width:100%;padding:9px 10px;background:var(--panel2);border:1px solid var(--line);
+    color:var(--tx);border-radius:9px;font-size:14px;outline:none}
+  .row{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .row label{margin:0;flex:1}
+  .row .val{font-size:13px;color:var(--tx);min-width:52px;text-align:right;font-variant-numeric:tabular-nums}
+  input[type=range]{flex:1.6;accent-color:var(--acc);height:26px}
+  .chk{display:flex;align-items:center;gap:9px;margin:8px 0;cursor:pointer}
+  .chk input{width:18px;height:18px;accent-color:var(--acc)}
+  .chk span{font-size:13px;color:var(--tx)}
+  .sub{margin-left:4px;padding-left:10px;border-left:2px solid var(--line)}
+  .btn{display:block;width:100%;padding:11px;border:0;border-radius:10px;font-size:14px;
+    font-weight:650;cursor:pointer;margin:8px 0;color:#0e1116;background:var(--acc)}
+  .btn.sec{background:var(--panel2);color:var(--tx);border:1px solid var(--line)}
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .mini{display:flex;gap:8px}
+  .mini .btn{margin:8px 0}
+  .status{font-size:12px;color:var(--mut);margin-top:6px;line-height:1.5}
+  .status b{color:var(--acc2)}
+  .warn{color:var(--danger)}
+  .file{font-size:12px;color:var(--mut)}
+  .file input{font-size:12px;color:var(--mut);margin-top:4px}
+  .title{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--acc);
+    margin:0 0 8px;font-weight:700}
+  .hbtn{background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:8px;
+    padding:7px 11px;font-size:13px;font-weight:600;cursor:pointer;margin-left:8px}
+  .hbtn.acc{background:var(--acc);color:#0e1116;border-color:var(--acc)}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;
+    justify-content:center;padding:16px;z-index:50}
+  .modal.open{display:flex}
+  .modal-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    max-width:520px;width:100%;max-height:86vh;overflow:auto;padding:20px}
+  .modal-card h2{margin:0 0 4px;font-size:18px}
+  .modal-card h3{margin:16px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--acc)}
+  .modal-card p,.modal-card li{font-size:14px;line-height:1.55;color:var(--tx)}
+  .modal-card ol,.modal-card ul{margin:6px 0;padding-left:20px}
+  .modal-card .muted{color:var(--mut);font-size:13px}
+  .modal-close{float:right;background:none;border:0;color:var(--mut);font-size:24px;cursor:pointer;line-height:1;margin-top:-6px}
+  .badge{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:0 7px;font-size:12px;color:var(--acc2)}
+</style>
+</head>
+<body>
+<header>
+  <span class="dot"></span>
+  <h1>Letras LED 3D</h1>
+  <div style="flex:1"></div>
+  <button id="btnInstall" class="hbtn acc" style="display:none">Instalar</button>
+  <button id="btnHelp" class="hbtn">Ayuda</button>
+</header>
+
+<div class="wrap">
+  <div id="stage">
+    <div id="dims">—</div>
+    <div id="hint">Arrastra para girar · rueda / pellizca para acercar</div>
+  </div>
+
+  <div class="panel">
+    <div class="grp">
+      <div class="title">Texto</div>
+      <input id="texto" type="text" value="LED" autocomplete="off" spellcheck="false">
+      <div class="row" style="margin-top:10px">
+        <label>Tipografía (palo seco)</label>
+      </div>
+      <select id="peso">
+        <option value="700Bold" selected>Montserrat Bold</option>
+        <option value="800ExtraBold">Montserrat ExtraBold</option>
+        <option value="600SemiBold">Montserrat SemiBold</option>
+        <option value="400Regular">Montserrat Regular</option>
+      </select>
+      <div class="file" style="margin-top:8px">
+        ¿No carga la fuente? Sube tu .ttf/.otf:
+        <input id="fontfile" type="file" accept=".ttf,.otf">
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="title">Medidas de la caja</div>
+      <div class="row"><label>Altura de letra</label>
+        <input id="altura" type="range" min="30" max="300" step="5" value="100">
+        <span class="val" id="altura_v">100 mm</span></div>
+      <div class="row"><label>Profundidad (pared)</label>
+        <input id="prof" type="range" min="8" max="60" step="1" value="25">
+        <span class="val" id="prof_v">25 mm</span></div>
+      <div class="row"><label>Espesor de pared</label>
+        <input id="pared" type="range" min="1.2" max="5" step="0.2" value="2.4">
+        <span class="val" id="pared_v">2.4 mm</span></div>
+      <div class="row"><label>Espesor de base</label>
+        <input id="base" type="range" min="0.8" max="4" step="0.2" value="1.6">
+        <span class="val" id="base_v">1.6 mm</span></div>
+    </div>
+
+    <div class="grp">
+      <div class="title">Tapa frontal</div>
+      <label class="chk"><input id="vertapa" type="checkbox" checked>
+        <span>Ver tapa translúcida en la vista</span></label>
+      <div class="row"><label>Espesor de tapa</label>
+        <input id="tapa" type="range" min="0.8" max="3" step="0.2" value="1.2">
+        <span class="val" id="tapa_v">1.2 mm</span></div>
+    </div>
+
+    <div class="grp">
+      <div class="title">Bandeja / palabra completa</div>
+      <label class="chk"><input id="bandeja" type="checkbox">
+        <span>Unir las letras en una bandeja con pasos de cable</span></label>
+      <div class="sub" id="bandeja_opts" style="display:none">
+        <div class="row"><label>Margen de bandeja</label>
+          <input id="margen" type="range" min="0" max="20" step="1" value="6">
+          <span class="val" id="margen_v">6 mm</span></div>
+        <div class="row"><label>Ø paso de cable</label>
+          <input id="agu" type="range" min="4" max="16" step="1" value="8">
+          <span class="val" id="agu_v">8 mm</span></div>
+        <div class="row"><label>Altura del agujero</label>
+          <input id="aguy" type="range" min="10" max="80" step="5" value="35">
+          <span class="val" id="aguy_v">35 %</span></div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="title">Descargar</div>
+      <div class="row"><label>Formato</label>
+        <select id="fmt" style="flex:1.6">
+          <option value="stl">STL</option>
+          <option value="3mf">3MF</option>
+          <option value="both">STL + 3MF</option>
+        </select></div>
+      <button class="btn" id="dl_cuerpo">Cuerpo de la palabra (imprimir opaco)</button>
+      <button class="btn sec" id="dl_tapa">Tapa (imprimir translúcido)</button>
+      <div class="row" style="margin-top:6px"><label>Letra individual</label>
+        <select id="sel_letra" style="flex:1.6"></select></div>
+      <div class="mini">
+        <button class="btn sec" id="dl_lcuerpo">Cuerpo letra</button>
+        <button class="btn sec" id="dl_ltapa">Tapa letra</button>
+      </div>
+      <div class="status" id="status">Cargando fuente…</div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="help">
+  <div class="modal-card">
+    <button class="modal-close" id="helpClose" aria-label="Cerrar">&times;</button>
+    <h2>Cómo instalar y usar</h2>
+    <p class="muted">Genera letras caja huecas para instalar LED por dentro y exporta STL / 3MF.</p>
+
+    <h3>Instalar en el celular</h3>
+    <button class="hbtn acc" id="btnInstall2" style="display:none;margin:2px 0 10px">Instalar app ahora</button>
+    <p><b>Android (Chrome):</b> menú <span class="badge">⋮</span> &rarr; <b>Instalar aplicación</b> (o "Agregar a pantalla de inicio").</p>
+    <p><b>iPhone (Safari):</b> botón <b>Compartir</b> &rarr; <b>Agregar a inicio</b>.</p>
+    <p class="muted">La primera vez necesita internet; después funciona sin conexión.</p>
+
+    <h3>Cómo usar</h3>
+    <ol>
+      <li>Escribe el <b>texto</b> y elige la tipografía.</li>
+      <li>Ajusta <b>altura, profundidad, pared y base</b> con los deslizadores.</li>
+      <li><b>Gira</b> el modelo con el dedo; acerca con pellizco.</li>
+      <li>Elige <b>Formato</b> (STL / 3MF) y descarga:
+        <ul><li><b>Cuerpo</b> &rarr; imprímelo opaco.</li><li><b>Tapa</b> &rarr; imprímela en translúcido.</li></ul></li>
+      <li><b>Palabra completa:</b> activa la bandeja con pasos de cable.</li>
+      <li><b>Una letra suelta:</b> elígela en el desplegable y descarga su cuerpo/tapa.</li>
+    </ol>
+    <button class="hbtn" id="helpOk" style="margin-top:8px">Entendido</button>
+  </div>
+</div>
+<script>
+!function(t,n){"object"==typeof exports&&"undefined"!=typeof module?n(exports):"function"==typeof define&&define.amd?define(["exports"],n):n((t="undefined"!=typeof globalThis?globalThis:t||self).earcut={})}(this,function(t){"use strict";const n=new Set;let e=!1;function r(t,n,e,r,x){let o=null;if(x===G(t,n,e,r)>0)for(let x=n;x<e;x+=r)o=C(x/r|0,t[x],t[x+1],o);else for(let x=e-r;x>=n;x-=r)o=C(x/r|0,t[x],t[x+1],o);return o&&O(o,o.next)&&(D(o),o=o.next),o}function x(t,r=t){const x=r===t;let o,i=t;do{o=!1,i===i.next||0!==n.size&&n.has(i)||!O(i,i.next)&&0!==_(i.prev,i,i.next)?(x||i!==r)&&(i=i.next,o=!x):((x||i===r)&&(r=i.prev),e=!0,D(i),i=i.prev,o=!0)}while(o||i!==r);return r}function o(t,n,r,o,c){c&&function(t,n,e,r){let x=t,o=0;do{x.z=j(x.x,x.y,n,e,r),Z[o++]=x,x=x.next}while(x!==t);!function(t){if(t<=32){for(let n=1;n<t;n++){const t=Z[n],e=t.z;let r=n-1;for(;r>=0&&Z[r].z>e;)Z[r+1]=Z[r],r--;Z[r+1]=t}return}b.length<t&&(b=new Uint32Array(t),z=new Uint32Array(t),A=new Array(t));for(let n=0;n<t;n++)b[n]=Z[n].z;I(t,Z,b,A,z,0),I(t,A,z,Z,b,8),I(t,Z,b,A,z,16),I(t,A,z,Z,b,24)}(o);let i=null;for(let t=0;t<o;t++){const n=Z[t];n.prevZ=i,i&&(i.nextZ=n),i=n}i.nextZ=null}(t,r,o,c);let y=t,s=!1;for(;t.prev!==t.next;){const a=t.prev,h=t.next;if(_(a,t,h)<0&&(c?l(t,r,o,c):i(t)))n.push(a.i,t.i,h.i),D(t),t=h,y=h;else if((t=h)===y){if(e=!1,t=x(t),e){y=t;continue}if(!s){y=t=f(t,n),s=!0;continue}u(t,n,r,o,c);break}}}function i(t){const n=t.prev,e=t,r=t.next,x=n.x,o=e.x,i=r.x,l=n.y,f=e.y,u=r.y,c=Math.min(x,o,i),y=Math.min(l,f,u),s=Math.max(x,o,i),a=Math.max(l,f,u);let h=r.next;for(;h!==n;){if(h.x>=c&&h.x<=s&&h.y>=y&&h.y<=a&&(x!==h.x||l!==h.y)&&F(x,l,o,f,i,u,h.x,h.y)&&_(h.prev,h,h.next)>=0)return!1;h=h.next}return!0}function l(t,n,e,r){const x=t.prev,o=t,i=t.next,l=x.x,f=o.x,u=i.x,c=x.y,y=o.y,s=i.y,a=Math.min(l,f,u),h=Math.min(c,y,s),p=Math.max(l,f,u),v=Math.max(c,y,s),d=j(a,h,n,e,r),M=j(p,v,n,e,r);let w=t.prevZ;for(;w&&w.z>=d;){if(w.x>=a&&w.x<=p&&w.y>=h&&w.y<=v&&w!==i&&(l!==w.x||c!==w.y)&&F(l,c,f,y,u,s,w.x,w.y)&&_(w.prev,w,w.next)>=0)return!1;w=w.prevZ}let g=t.nextZ;for(;g&&g.z<=M;){if(g.x>=a&&g.x<=p&&g.y>=h&&g.y<=v&&g!==i&&(l!==g.x||c!==g.y)&&F(l,c,f,y,u,s,g.x,g.y)&&_(g.prev,g,g.next)>=0)return!1;g=g.nextZ}return!0}function f(t,n){let e=t,r=!1;do{const x=e.prev,o=e.next.next;P(x,e,e.next,o,!1)&&q(x,o)&&q(o,x)&&(n.push(x.i,e.i,o.i),D(e),D(e.next),e=t=o,r=!0),e=e.next}while(e!==t);return r?x(e):e}function u(t,n,e,r,i){let l=t;do{let t=l.next.next;for(;t!==l.prev;){if(l.i!==t.i&&T(l,t)){let f=B(l,t);return l=x(l,l.next),f=x(f,f.next),o(l,n,e,r,i),void o(f,n,e,r,i)}t=t.next}l=l.next}while(l!==t)}let c=!1;function y(t,n){return t.x-n.x||t.y-n.y||(t.next.y-t.y)/(t.next.x-t.x)-(n.next.y-n.y)/(n.next.x-n.x)}function s(t,n){const e=function(t,n){let e=n;const r=t.x,x=t.y;let o,i=-1/0;if(O(t,e))return e;for(let n=0,l=0;n<p;n++,l+=4){if(x<h[l+1]||x>h[l+3]||h[l]>r||h[l+2]<=i)continue;const f=w(n);e=g(n);do{if(e.prev.next===e){if(O(t,e.next))return e.next;if(x<=e.y&&x>=e.next.y&&e.next.y!==e.y){const t=e.x+(x-e.y)*(e.next.x-e.x)/(e.next.y-e.y);if(t<=r&&t>i&&(i=t,o=e.x<e.next.x?e:e.next,t===r))return o}}e=e.next}while(e!==f)}if(!o)return null;const l=o.x,f=o.y,u=Math.min(x,f),c=Math.max(x,f);let y=1/0;for(let n=0,s=0;n<p;n++,s+=4){if(h[s+2]<l||h[s]>r||h[s+3]<u||h[s+1]>c)continue;const a=w(n);e=g(n);do{if(e.prev.next===e&&r>=e.x&&e.x>=l&&r!==e.x&&F(x<f?r:i,x,l,f,x<f?i:r,x,e.x,e.y)){const n=Math.abs(x-e.y)/(r-e.x);(q(e,t)||e.y===x&&e.next.y===x&&e.next.x>r)&&(n<y||n===y&&(e.x>o.x||e.x===o.x&&m(o,e)))&&(o=e,y=n)}e=e.next}while(e!==a)}return o}(t,n);if(!e)return n;const r=B(e,t);return M(e,r.next.next),x(r,r.next),x(e,e.next)}const a=16;let h=new Float64Array(0),p=0;const v=[],d=[];function M(t,n){let e=t;do{const t=p++;v[t]=e;let r=1/0,x=1/0,o=-1/0,i=-1/0,l=0;do{const n=e.next;e.z=t,e.x<r&&(r=e.x),e.x>o&&(o=e.x),e.y<x&&(x=e.y),e.y>i&&(i=e.y),n.x<r&&(r=n.x),n.x>o&&(o=n.x),n.y<x&&(x=n.y),n.y>i&&(i=n.y),e=n}while(++l<a&&e!==n);d[t]=e;const f=4*t;h[f]=r,h[f+1]=x,h[f+2]=o,h[f+3]=i}while(e!==n)}function w(t){let n=d[t];for(;n.prev.next!==n;)n=n.next;return d[t]=n,n}function g(t){let n=v[t];for(;n.prev.next!==n;)n=n.next;return v[t]=n,n}function m(t,n){return _(t.prev,t,n.prev)<0&&_(n.next,t,t.next)<0}const Z=[];let A=[],b=new Uint32Array(0),z=new Uint32Array(0);const U=new Uint32Array(256);function I(t,n,e,r,x,o){U.fill(0);for(let n=0;n<t;n++)U[e[n]>>>o&255]++;let i=0;for(let t=0;t<256;t++){const n=U[t];U[t]=i,i+=n}for(let i=0;i<t;i++){const t=e[i],l=U[t>>>o&255]++;r[l]=n[i],x[l]=t}}function j(t,n,e,r,x){return(t=1431655765&((t=858993459&((t=252645135&((t=16711935&((t=(t-e)*x|0)|t<<8))|t<<4))|t<<2))|t<<1))|(n=1431655765&((n=858993459&((n=252645135&((n=16711935&((n=(n-r)*x|0)|n<<8))|n<<4))|n<<2))|n<<1))<<1}function k(t){let n=t,e=t;do{(n.x<e.x||n.x===e.x&&n.y<e.y)&&(e=n),n=n.next}while(n!==t);return e}function F(t,n,e,r,x,o,i,l){return(x-i)*(n-l)>=(t-i)*(o-l)&&(t-i)*(r-l)>=(e-i)*(n-l)&&(e-i)*(o-l)>=(x-i)*(r-l)}function T(t,n){const e=O(t,n)&&_(t.prev,t,t.next)>0&&_(n.prev,n,n.next)>0;return t.next.i!==n.i&&(e||q(t,n)&&q(n,t)&&(0!==_(t.prev,t,n.prev)||0!==_(t,n.prev,n)))&&!function(t,n){const e=Math.min(t.x,n.x),r=Math.max(t.x,n.x),x=Math.min(t.y,n.y),o=Math.max(t.y,n.y);let i=t;do{const l=i.next;if(i.x>r&&l.x>r||i.x<e&&l.x<e||i.y>o&&l.y>o||i.y<x&&l.y<x)i=l;else{if(i.i!==t.i&&l.i!==t.i&&i.i!==n.i&&l.i!==n.i&&P(i,l,t,n))return!0;i=l}}while(i!==t);return!1}(t,n)&&(e||function(t,n){let e=t,r=!1;const x=(t.x+n.x)/2,o=(t.y+n.y)/2;do{const t=e.next;e.y>o!=t.y>o&&x<(t.x-e.x)*(o-e.y)/(t.y-e.y)+e.x&&(r=!r),e=t}while(e!==t);return r}(t,n))}function _(t,n,e){return(n.y-t.y)*(e.x-n.x)-(n.x-t.x)*(e.y-n.y)}function O(t,n){return t.x===n.x&&t.y===n.y}function P(t,n,e,r,x=!0){const o=_(t,n,e),i=_(t,n,r),l=_(e,r,t),f=_(e,r,n);return(o>0&&i<0||o<0&&i>0)&&(l>0&&f<0||l<0&&f>0)||!!x&&(!(0!==o||!S(t,e,n))||(!(0!==i||!S(t,r,n))||(!(0!==l||!S(e,t,r))||!(0!==f||!S(e,n,r)))))}function S(t,n,e){return n.x<=Math.max(t.x,e.x)&&n.x>=Math.min(t.x,e.x)&&n.y<=Math.max(t.y,e.y)&&n.y>=Math.min(t.y,e.y)}function q(t,n){return _(t.prev,t,t.next)<0?_(t,n,t.next)>=0&&_(t,t.prev,n)>=0:_(t,n,t.prev)<0||_(t,t.next,n)<0}function B(t,n){const e=E(t.i,t.x,t.y),r=E(n.i,n.x,n.y),x=t.next,o=n.prev;return t.next=n,n.prev=t,e.next=x,x.prev=e,r.next=e,e.prev=r,o.next=r,r.prev=o,r}function C(t,n,e,r){const x=E(t,n,e);return r?(x.next=r.next,x.prev=r,r.next.prev=x,r.next=x):(x.prev=x,x.next=x),x}function D(t){t.next.prev=t.prev,t.prev.next=t.next,t.prevZ&&(t.prevZ.nextZ=t.nextZ),t.nextZ&&(t.nextZ.prevZ=t.prevZ),c&&function(t,n){const e=4*t.z;n.x<h[e]&&(h[e]=n.x),n.y<h[e+1]&&(h[e+1]=n.y),n.x>h[e+2]&&(h[e+2]=n.x),n.y>h[e+3]&&(h[e+3]=n.y)}(t.prev,t.next)}function E(t,n,e){return{i:t,x:n,y:e,prev:null,next:null,z:0,prevZ:null,nextZ:null}}function G(t,n,e,r){let x=0;for(let o=n,i=e-r;o<e;o+=r)x+=(t[i]-t[o])*(t[o+1]+t[i+1]),i=o;return x}let H,J,K,L,N,Q=0,R=0;function V(t,n,e,r,x,o){return(e-t)*(o-n)-(r-n)*(x-t)}function W(t,n,e,r,x,o,i,l){const f=t-i,u=n-l,c=e-i,y=r-l,s=x-i,a=o-l,h=f*f+u*u,p=c*c+y*y,v=s*s+a*a,d=h+p+v;return f*(y*v-p*a)-u*(c*v-p*s)+h*(c*a-y*s)<=1e-13*d*d}function X(t){return t-t%3+(t+1)%3}t.default=function(t,e,i=2){const l=e&&e.length,f=l?e[0]*i:t.length;n.size&&n.clear();let u=r(t,0,f,i,!0);const v=[];if(!u||u.next===u.prev)return v;let d=0,w=0,g=0;if(l&&(u=function(t,e,o,i){const l=[];for(let x=0,o=e.length;x<o;x++){const f=r(t,e[x]*i,x<o-1?e[x+1]*i:t.length,i,!1);f===f.next&&n.add(f),l.push(k(f))}l.sort(y),function(t,n){const e=Math.ceil((t+2*n)/a)+n+2;h.length<4*e&&(h=new Float64Array(4*e));p=0}(t.length/i,e.length),M(o,o),c=!0;for(let t=0;t<l.length;t++)o=s(l[t],o);return c=!1,x(o)}(t,e,u,i)),t.length>80*i){d=t[0],w=t[1];let n=d,e=w;for(let r=i;r<f;r+=i){const x=t[r],o=t[r+1];x<d&&(d=x),o<w&&(w=o),x>n&&(n=x),o>e&&(e=o)}g=Math.max(n-d,e-w),g=0!==g?32767/g:0}return o(u,v,d,w,g),v},t.deviation=function(t,n,e,r){const x=n&&n.length,o=x?n[0]*e:t.length;let i=Math.abs(G(t,0,o,e));if(x)for(let r=0,x=n.length;r<x;r++){const o=n[r]*e,l=r<x-1?n[r+1]*e:t.length;i-=Math.abs(G(t,o,l,e))}let l=0;for(let n=0;n<r.length;n+=3){const x=r[n]*e,o=r[n+1]*e,i=r[n+2]*e;l+=Math.abs((t[x]-t[i])*(t[o+1]-t[x+1])-(t[x]-t[o])*(t[i+1]-t[x+1]))}return 0===i&&0===l?0:Math.abs((l-i)/i)},t.flatten=function(t){const n=[],e=[],r=t[0][0].length;let x=0,o=0;for(const i of t){for(const t of i)for(let e=0;e<r;e++)n.push(t[e]);o&&(x+=o,e.push(x)),o=i.length}return{vertices:n,holes:e,dimensions:r}},t.refine=function(t,n,e=2){const r=t,x=r.length;if(x<6)return;!function(t){(!H||H.length<t)&&(H=new Int32Array(t));(!J||J.length<t)&&(J=new Int32Array(t));(!N||N.length<t)&&(N=new Uint8Array(t));let n=1;for(;n<4*t;)n<<=1;(!K||K.length<n)&&(K=new Int32Array(n),L=new Uint32Array(n));Q=n-1}(x),R++,J.fill(-1,0,x);let o=0;for(let t=0;t<x;t++){const n=r[t],e=r[X(t)],x=n<e?n:e,i=n<e?e:n;let l=(Math.imul(x,2654435761)^Math.imul(i,2246822507))&Q;for(;L[l]===R;){const n=K[l];if(-1!==n){const e=r[n],f=r[X(n)];if(e===x&&f===i||e===i&&f===x){J[t]=n,J[n]=t,K[l]=-1,N[n]=1,H[o++]=n;break}}l=l+1&Q}L[l]!==R&&(K[l]=t,L[l]=R)}for(;o>0;){const t=H[--o];N[t]=0;const x=J[t];if(-1===x)continue;const i=t-t%3,l=x-x%3,f=i+(t+2)%3,u=i+(t+1)%3,c=l+(x+2)%3,y=l+(x+1)%3,s=r[f],a=r[t],h=r[u],p=r[c],v=n[s*e],d=n[s*e+1],M=n[a*e],w=n[a*e+1],g=n[h*e],m=n[h*e+1],Z=n[p*e],A=n[p*e+1];if(!W(v,d,M,w,g,m,Z,A)&&V(v,d,M,w,Z,A)>0&&V(v,d,Z,A,g,m)>0){r[t]=p,r[x]=s;const n=J[c],e=J[f];J[t]=n,-1!==n&&(J[n]=t),J[x]=e,-1!==e&&(J[e]=x),J[f]=c,J[c]=f,-1!==n&&0===N[t]&&(N[t]=1,H[o++]=t),-1!==e&&0===N[x]&&(N[x]=1,H[o++]=x),-1!==J[u]&&0===N[u]&&(N[u]=1,H[o++]=u),-1!==J[y]&&0===N[y]&&(N[y]=1,H[o++]=y)}}},Object.defineProperty(t,"__esModule",{value:!0})});
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
+<script>
+"use strict";
+/* ============ estado / util DOM ============ */
+const $=id=>document.getElementById(id);
+const statusEl=$("status");
+function setStatus(html,warn){statusEl.innerHTML=html;statusEl.classList.toggle("warn",!!warn);}
+let FONT=null, LETTERS=[];
+
+/* ============ carga de fuente ============ */
+const FONT_BASES=[
+  "https://cdn.jsdelivr.net/npm/@expo-google-fonts/montserrat@0.4.2/",
+  "https://unpkg.com/@expo-google-fonts/montserrat@0.4.2/"
+];
+const FONT_FILES={
+  "700Bold":"700Bold/Montserrat_700Bold.ttf",
+  "800ExtraBold":"800ExtraBold/Montserrat_800ExtraBold.ttf",
+  "600SemiBold":"600SemiBold/Montserrat_600SemiBold.ttf",
+  "400Regular":"400Regular/Montserrat_400Regular.ttf"
+};
+function loadFontWeight(key){
+  const file=FONT_FILES[key]||FONT_FILES["700Bold"];
+  setStatus("Cargando tipografía…");
+  let i=0;
+  const tryNext=()=>{
+    if(i>=FONT_BASES.length){
+      setStatus("No se pudo cargar la fuente automáticamente. Sube tu archivo .ttf con el botón de arriba.",true);
+      return;
+    }
+    const url=FONT_BASES[i++]+file;
+    opentype.load(url,(err,font)=>{
+      if(err||!font){tryNext();return;}
+      FONT=font; setStatus("Fuente lista."); regen();
+    });
+  };
+  tryNext();
+}
+$("fontfile").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ FONT=opentype.parse(r.result); setStatus("Fuente cargada desde archivo."); regen(); }
+    catch(err){ setStatus("No se pudo leer ese archivo de fuente.",true); } };
+  r.readAsArrayBuffer(f);
+});
+
+/* ============ geometría 2D ============ */
+function flattenPath(cmds){
+  const N=6, subs=[]; let cur=null,cx=0,cy=0;
+  const seg=(x0,y0,x1,y1,ax,ay,bx,by,quad,cubic)=>{
+    for(let t=1;t<=N;t++){const u=t/N,mt=1-u; let X,Y;
+      if(quad){X=mt*mt*x0+2*mt*u*ax+u*u*x1; Y=mt*mt*y0+2*mt*u*ay+u*u*y1;}
+      else if(cubic){X=mt*mt*mt*x0+3*mt*mt*u*ax+3*mt*u*u*bx+u*u*u*x1; Y=mt*mt*mt*y0+3*mt*mt*u*ay+3*mt*u*u*by+u*u*u*y1;}
+      else {X=x0+(x1-x0)*u; Y=y0+(y1-y0)*u;}
+      cur.push([X,Y]);
+    }
+  };
+  for(const c of cmds){
+    if(c.type==="M"){ if(cur&&cur.length>2)subs.push(cur); cur=[[c.x,c.y]]; cx=c.x; cy=c.y; }
+    else if(c.type==="L"){ seg(cx,cy,c.x,c.y); cx=c.x; cy=c.y; }
+    else if(c.type==="Q"){ seg(cx,cy,c.x,c.y,c.x1,c.y1,0,0,true,false); cx=c.x; cy=c.y; }
+    else if(c.type==="C"){ seg(cx,cy,c.x,c.y,c.x1,c.y1,c.x2,c.y2,false,true); cx=c.x; cy=c.y; }
+    else if(c.type==="Z"){ if(cur&&cur.length>2)subs.push(cur); cur=null; }
+  }
+  if(cur&&cur.length>2)subs.push(cur);
+  return subs;
+}
+function flattenText(font,text,size){
+  const scale=size/font.unitsPerEm; let x=0, out=[], prev=null;
+  for(const ch of text){
+    const glyph=font.charToGlyph(ch);
+    if(prev&&font.getKerningValue) x+=(font.getKerningValue(prev,glyph)||0)*scale;
+    const p=glyph.getPath(x,0,size);
+    const subs=flattenPath(p.commands);
+    for(const s of subs) for(const pt of s) pt[1]=-pt[1];      // y hacia arriba
+    if(subs.length && ch.trim()!==""){
+      let a=[1e9,1e9,-1e9,-1e9];
+      for(const s of subs) for(const pt of s){a[0]=Math.min(a[0],pt[0]);a[1]=Math.min(a[1],pt[1]);a[2]=Math.max(a[2],pt[0]);a[3]=Math.max(a[3],pt[1]);}
+      out.push({ch,subs,bb:a});
+    }
+    x+=glyph.advanceWidth*scale; prev=glyph;
+  }
+  return out;
+}
+function sArea(p){let a=0;for(let i=0,n=p.length;i<n;i++){const q=p[i],r=p[(i+1)%n];a+=q[0]*r[1]-r[0]*q[1];}return a/2;}
+function orient(p,ccw){return (sArea(p)>0)===ccw ? p : p.slice().reverse();}
+function inPoly(pt,p){let s=false;for(let i=0,j=p.length-1;i<p.length;j=i++){const xi=p[i][0],yi=p[i][1],xj=p[j][0],yj=p[j][1];if(((yi>pt[1])!=(yj>pt[1]))&&(pt[0]<(xj-xi)*(pt[1]-yi)/(yj-yi)+xi))s=!s;}return s;}
+function inGlyph(pt,subs){let s=false;for(const c of subs)if(inPoly(pt,c))s=!s;return s;}
+function classify(subs){
+  return subs.map((s,i)=>{let d=0;for(let j=0;j<subs.length;j++)if(j!==i&&inPoly(s[0],subs[j]))d++;return {poly:s,hole:(d%2)===1};});
+}
+function inset(poly,subs,w){
+  const n=poly.length,out=[],nrm=v=>{const L=Math.hypot(v[0],v[1])||1;return[v[0]/L,v[1]/L];};
+  for(let i=0;i<n;i++){
+    const P=poly[(i-1+n)%n],C=poly[i],Q=poly[(i+1)%n];
+    let e1=nrm([C[0]-P[0],C[1]-P[1]]), e2=nrm([Q[0]-C[0],Q[1]-C[1]]);
+    let nA=[-e1[1],e1[0]], nB=[-e2[1],e2[0]];
+    let bis=[nA[0]+nB[0],nA[1]+nB[1]]; const bl=Math.hypot(bis[0],bis[1]);
+    bis = bl<1e-6 ? nA : [bis[0]/bl,bis[1]/bl];
+    let cosH=bis[0]*nA[0]+bis[1]*nA[1]; if(cosH<0.25)cosH=0.25;
+    let d=w/cosH; if(d>3*w)d=3*w;
+    const sign=inGlyph([C[0]+bis[0]*0.01,C[1]+bis[1]*0.01],subs)?1:-1;
+    out.push([C[0]+sign*bis[0]*d, C[1]+sign*bis[1]*d]);
+  }
+  return out;
+}
+function circle(cx,cy,r,seg){seg=seg||28;const p=[];for(let i=0;i<seg;i++){const a=2*Math.PI*i/seg;p.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);}return p;}
+
+/* ============ triángulos 3D ============ */
+function slab(outer,holes,zB,zT,tris){
+  outer=orient(outer,true);
+  const H=(holes||[]).map(h=>orient(h,false));
+  const verts=[],holeIdx=[];
+  for(const p of outer)verts.push(p[0],p[1]);
+  for(const h of H){holeIdx.push(verts.length/2);for(const p of h)verts.push(p[0],p[1]);}
+  const tr=earcut(verts,holeIdx), V=i=>[verts[2*i],verts[2*i+1]];
+  for(let k=0;k<tr.length;k+=3){
+    const a=V(tr[k]),b=V(tr[k+1]),c=V(tr[k+2]);
+    tris.push([[a[0],a[1],zB],[c[0],c[1],zB],[b[0],b[1],zB]]); // fondo
+    tris.push([[a[0],a[1],zT],[b[0],b[1],zT],[c[0],c[1],zT]]); // techo
+  }
+  const loops=[outer].concat(H);
+  for(const L of loops){const n=L.length;for(let i=0;i<n;i++){const A=L[i],B=L[(i+1)%n];
+    tris.push([[A[0],A[1],zB],[B[0],B[1],zB],[B[0],B[1],zT]]);
+    tris.push([[A[0],A[1],zB],[B[0],B[1],zT],[A[0],A[1],zT]]);
+  }}
+}
+function ring(cOut,cIn,zB,zT,tris){
+  const n=cOut.length, q=(a,b,c,d)=>{tris.push([a,b,c]);tris.push([a,c,d]);};
+  for(let i=0;i<n;i++){const j=(i+1)%n;
+    const Po=cOut[i],Po2=cOut[j],Pi=cIn[i],Pi2=cIn[j];
+    q([Po[0],Po[1],zB],[Po2[0],Po2[1],zB],[Po2[0],Po2[1],zT],[Po[0],Po[1],zT]);   // exterior
+    q([Pi[0],Pi[1],zB],[Pi[0],Pi[1],zT],[Pi2[0],Pi2[1],zT],[Pi2[0],Pi2[1],zB]);   // interior
+    q([Po[0],Po[1],zT],[Po2[0],Po2[1],zT],[Pi2[0],Pi2[1],zT],[Pi[0],Pi[1],zT]);   // arriba
+    q([Po[0],Po[1],zB],[Pi[0],Pi[1],zB],[Pi2[0],Pi2[1],zB],[Po2[0],Po2[1],zB]);   // abajo
+  }
+}
+function cableCircles(letters,P){
+  const list=[];
+  for(const L of letters){const[mnx,mny,mxx,mxy]=L.bb;
+    list.push({cx:(mnx+mxx)/2, cy:mny+(P.aguY/100)*(mxy-mny), r:P.agu/2, letter:L});}
+  return list;
+}
+function buildBody(letters,P,withTray){
+  const tris=[]; const circles = withTray?cableCircles(letters,P):[];
+  for(const L of letters){
+    const cls=classify(L.subs);
+    const outers=cls.filter(c=>!c.hole), holes=cls.filter(c=>c.hole);
+    for(const o of outers){
+      const hs=holes.filter(h=>inPoly(h.poly[0],o.poly)).map(h=>h.poly);
+      const cs=circles.filter(c=>inPoly([c.cx,c.cy],o.poly)).map(c=>circle(c.cx,c.cy,c.r));
+      slab(o.poly, hs.concat(cs), 0, P.base, tris);
+    }
+    for(const c of L.subs){ ring(c, inset(c,L.subs,P.pared), 0, P.base+P.prof, tris); }
+  }
+  if(withTray && letters.length){
+    let a=[1e9,1e9,-1e9,-1e9];
+    for(const L of letters){a[0]=Math.min(a[0],L.bb[0]);a[1]=Math.min(a[1],L.bb[1]);a[2]=Math.max(a[2],L.bb[2]);a[3]=Math.max(a[3],L.bb[3]);}
+    const m=P.margen, rect=[[a[0]-m,a[1]-m],[a[2]+m,a[1]-m],[a[2]+m,a[3]+m],[a[0]-m,a[3]+m]];
+    slab(rect, circles.map(c=>circle(c.cx,c.cy,c.r)), -P.bandeja, 0, tris);
+  }
+  return tris;
+}
+function buildTapa(letters,P){
+  const tris=[];
+  for(const L of letters){
+    const cls=classify(L.subs), outers=cls.filter(c=>!c.hole), holes=cls.filter(c=>c.hole);
+    for(const o of outers){
+      const hs=holes.filter(h=>inPoly(h.poly[0],o.poly)).map(h=>h.poly);
+      slab(o.poly, hs, 0, P.tapa, tris);
+    }
+  }
+  return tris;
+}
+
+/* ============ STL binario ============ */
+function trisToSTL(tris){
+  const buf=new ArrayBuffer(84+tris.length*50), dv=new DataView(buf);
+  dv.setUint32(80,tris.length,true); let o=84;
+  for(const t of tris){ o+=12;
+    for(const v of t){dv.setFloat32(o,v[0],true);dv.setFloat32(o+4,v[1],true);dv.setFloat32(o+8,v[2],true);o+=12;}
+    o+=2;
+  }
+  return buf;
+}
+/* --- 3MF (ZIP 'store' + XML, sin librerías) --- */
+const CRC_TABLE=(()=>{let c,t=[];for(let n=0;n<256;n++){c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC_TABLE[(c^u8[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zipStore(files){
+  const chunks=[]; const central=[]; let offset=0;
+  const push=a=>{chunks.push(a);offset+=a.length;};
+  const u16=v=>[v&255,(v>>8)&255], u32=v=>[v&255,(v>>8)&255,(v>>16)&255,(v>>24)&255];
+  for(const f of files){
+    const name=f.name, data=f.data, crc=crc32(data), localOff=offset;
+    push(Uint8Array.from([].concat(u32(0x04034b50),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0))));
+    push(name); push(data);
+    central.push(Uint8Array.from([].concat(u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(localOff))));
+    central.push(name);
+  }
+  const cdStart=offset; let cdSize=0;
+  for(const c of central){push(c);cdSize+=c.length;}
+  push(Uint8Array.from([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cdSize),u32(cdStart),u16(0))));
+  let total=0; for(const c of chunks)total+=c.length;
+  const out=new Uint8Array(total); let p=0; for(const c of chunks){out.set(c,p);p+=c.length;}
+  return out;
+}
+function meshTo3MF(tris){
+  const enc=new TextEncoder(), map=new Map(), verts=[], idx=[];
+  const key=(x,y,z)=>x.toFixed(4)+","+y.toFixed(4)+","+z.toFixed(4);
+  for(const t of tris){const tri=[];
+    for(const v of t){const k=key(v[0],v[1],v[2]);let id=map.get(k);
+      if(id===undefined){id=verts.length;map.set(k,id);verts.push(v);} tri.push(id);}
+    idx.push(tri);
+  }
+  let vs=""; for(const v of verts) vs+=`<vertex x="${v[0].toFixed(4)}" y="${v[1].toFixed(4)}" z="${v[2].toFixed(4)}"/>`;
+  let ts=""; for(const t of idx) ts+=`<triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}"/>`;
+  const model=`<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources><object id="1" type="model"><mesh><vertices>${vs}</vertices><triangles>${ts}</triangles></mesh></object></resources><build><item objectid="1"/></build></model>`;
+  const ct=`<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>`;
+  const rels=`<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>`;
+  return zipStore([
+    {name:enc.encode("[Content_Types].xml"),data:enc.encode(ct)},
+    {name:enc.encode("_rels/.rels"),data:enc.encode(rels)},
+    {name:enc.encode("3D/3dmodel.model"),data:enc.encode(model)}
+  ]);
+}
+function saveBlob(name,data,mime){
+  const blob=new Blob([data],{type:mime||"application/octet-stream"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+function exportMesh(basename,tris){
+  if(!tris.length){setStatus("No hay geometría para exportar.",true);return;}
+  const fmt=$("fmt").value;
+  if(fmt==="stl"||fmt==="both") saveBlob(basename+".stl", trisToSTL(tris), "model/stl");
+  if(fmt==="3mf"||fmt==="both") setTimeout(()=>saveBlob(basename+".3mf", meshTo3MF(tris), "model/3mf"), fmt==="both"?300:0);
+}
+
+/* ============ parámetros ============ */
+function readP(){
+  return {
+    altura:+$("altura").value, prof:+$("prof").value, pared:+$("pared").value,
+    base:+$("base").value, tapa:+$("tapa").value,
+    bandeja:+$("base").value>0?2.0:2.0, margen:+$("margen").value, agu:+$("agu").value, aguY:+$("aguy").value
+  };
+}
+/* bandeja de espesor fijo 2mm (independiente de base) */
+
+/* ============ three.js preview ============ */
+let renderer,scene,camera,group,bodyMesh,tapaMesh,rotX=-0.5,rotY=0.6,dist=400,curBB=null;
+function initThree(){
+  const stage=$("stage");
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(stage.clientWidth,stage.clientHeight);
+  stage.appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(38,stage.clientWidth/stage.clientHeight,1,5000);
+  group=new THREE.Group(); scene.add(group);
+  scene.add(new THREE.HemisphereLight(0xbfd4ff,0x202028,0.9));
+  const d1=new THREE.DirectionalLight(0xffffff,0.9); d1.position.set(1,1.4,1.2); scene.add(d1);
+  const d2=new THREE.DirectionalLight(0xffd28a,0.5); d2.position.set(-1,-0.4,-0.6); scene.add(d2);
+  addEventListener("resize",onResize);
+  bindDrag(stage);
+  animate();
+}
+function onResize(){const s=$("stage");renderer.setSize(s.clientWidth,s.clientHeight);camera.aspect=s.clientWidth/s.clientHeight;camera.updateProjectionMatrix();}
+function bindDrag(el){
+  let dragging=false,px=0,py=0;
+  const down=(x,y)=>{dragging=true;px=x;py=y;};
+  const move=(x,y)=>{if(!dragging)return;rotY+=(x-px)*0.01;rotX+=(y-py)*0.01;rotX=Math.max(-1.4,Math.min(1.4,rotX));px=x;py=y;};
+  const up=()=>dragging=false;
+  el.addEventListener("mousedown",e=>down(e.clientX,e.clientY));
+  addEventListener("mousemove",e=>move(e.clientX,e.clientY));
+  addEventListener("mouseup",up);
+  el.addEventListener("touchstart",e=>{if(e.touches[1])return;down(e.touches[0].clientX,e.touches[0].clientY);},{passive:true});
+  el.addEventListener("touchmove",e=>{if(e.touches[1])return;move(e.touches[0].clientX,e.touches[0].clientY);},{passive:true});
+  el.addEventListener("touchend",up);
+  el.addEventListener("wheel",e=>{e.preventDefault();dist*=(1+Math.sign(e.deltaY)*0.1);dist=Math.max(60,Math.min(2500,dist));},{passive:false});
+  // pinch
+  let pd=0;
+  el.addEventListener("touchmove",e=>{if(e.touches[1]){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;const d=Math.hypot(dx,dy);if(pd)dist*=pd/d;pd=d;dist=Math.max(60,Math.min(2500,dist));}},{passive:true});
+  el.addEventListener("touchend",()=>pd=0);
+}
+function meshFromTris(tris){
+  const pos=new Float32Array(tris.length*9); let i=0;
+  for(const t of tris)for(const v of t){pos[i++]=v[0];pos[i++]=v[1];pos[i++]=v[2];}
+  const g=new THREE.BufferGeometry(); g.setAttribute("position",new THREE.BufferAttribute(pos,3));
+  g.computeVertexNormals(); return g;
+}
+function updatePreview(P){
+  while(group.children.length)group.remove(group.children[0]);
+  if(!LETTERS.length){$("dims").textContent="—";return;}
+  const withTray=$("bandeja").checked;
+  const body=buildBody(LETTERS,P,withTray);
+  // centrar
+  let mn=[1e9,1e9,1e9],mx=[-1e9,-1e9,-1e9];
+  for(const t of body)for(const v of t)for(let k=0;k<3;k++){mn[k]=Math.min(mn[k],v[k]);mx[k]=Math.max(mx[k],v[k]);}
+  const ctr=[(mn[0]+mx[0])/2,(mn[1]+mx[1])/2,(mn[2]+mx[2])/2];
+  const bg=meshFromTris(body); bg.translate(-ctr[0],-ctr[1],-ctr[2]);
+  bodyMesh=new THREE.Mesh(bg,new THREE.MeshStandardMaterial({color:0x2f3640,metalness:0.1,roughness:0.75,side:THREE.DoubleSide}));
+  group.add(bodyMesh);
+  if($("vertapa").checked){
+    const tp=buildTapa(LETTERS,P), tg=meshFromTris(tp);
+    tg.translate(-ctr[0],-ctr[1],-(ctr[2])); tg.translate(0,0,P.base+P.prof); // sobre el borde
+    tapaMesh=new THREE.Mesh(tg,new THREE.MeshStandardMaterial({color:0x39d0d8,transparent:true,opacity:0.35,roughness:0.4,side:THREE.DoubleSide}));
+    group.add(tapaMesh);
+  }
+  const dx=mx[0]-mn[0],dy=mx[1]-mn[1],dz=mx[2]-mn[2];
+  dist=Math.max(dx,dy)*1.7+120;
+  $("dims").textContent=`${dx.toFixed(0)} × ${dy.toFixed(0)} × ${dz.toFixed(0)} mm`;
+}
+function animate(){
+  requestAnimationFrame(animate);
+  if(!renderer)return;
+  group.rotation.x=rotX; group.rotation.y=rotY;
+  camera.position.set(0,0,dist); camera.lookAt(0,0,0);
+  renderer.render(scene,camera);
+}
+
+/* ============ regenerar ============ */
+let regenT=null;
+function regen(){
+  if(!FONT)return;
+  const text=$("texto").value||"";
+  const P=readP();
+  LETTERS=flattenText(FONT,text,P.altura);
+  // llenar selector de letra
+  const sel=$("sel_letra"); const prev=sel.value;
+  sel.innerHTML="";
+  LETTERS.forEach((L,i)=>{const o=document.createElement("option");o.value=i;o.textContent=`${i+1}: ${L.ch}`;sel.appendChild(o);});
+  if(prev&&+prev<LETTERS.length)sel.value=prev;
+  updatePreview(P);
+}
+function regenSoon(){clearTimeout(regenT);regenT=setTimeout(regen,140);}
+
+/* ============ enlaces UI ============ */
+const sliders=[["altura","altura_v","mm"],["prof","prof_v","mm"],["pared","pared_v","mm"],
+  ["base","base_v","mm"],["tapa","tapa_v","mm"],["margen","margen_v","mm"],["agu","agu_v","mm"],["aguy","aguy_v","%"]];
+sliders.forEach(([id,vid,u])=>{const el=$(id);const lab=$(vid);
+  const upd=()=>{lab.textContent=el.value+" "+u; regenSoon();};
+  el.addEventListener("input",upd);});
+$("texto").addEventListener("input",regenSoon);
+$("peso").addEventListener("change",e=>loadFontWeight(e.target.value));
+$("vertapa").addEventListener("change",()=>updatePreview(readP()));
+$("bandeja").addEventListener("change",e=>{$("bandeja_opts").style.display=e.target.checked?"block":"none";regenSoon();});
+
+const wname=()=>($("texto").value||"letras").replace(/\s+/g,"_");
+$("dl_cuerpo").addEventListener("click",()=>exportMesh(wname()+"_cuerpo",buildBody(LETTERS,readP(),$("bandeja").checked)));
+$("dl_tapa").addEventListener("click",()=>exportMesh(wname()+"_tapa",buildTapa(LETTERS,readP())));
+$("dl_lcuerpo").addEventListener("click",()=>{const i=+$("sel_letra").value;if(LETTERS[i])exportMesh("letra_"+LETTERS[i].ch+"_cuerpo",buildBody([LETTERS[i]],readP(),false));});
+$("dl_ltapa").addEventListener("click",()=>{const i=+$("sel_letra").value;if(LETTERS[i])exportMesh("letra_"+LETTERS[i].ch+"_tapa",buildTapa([LETTERS[i]],readP()));});
+
+/* ============ ayuda / instalación PWA ============ */
+let deferredPrompt=null;
+const helpModal=$("help");
+const openHelp=()=>helpModal.classList.add("open");
+const closeHelp=()=>helpModal.classList.remove("open");
+$("btnHelp").addEventListener("click",openHelp);
+$("helpClose").addEventListener("click",closeHelp);
+$("helpOk").addEventListener("click",closeHelp);
+helpModal.addEventListener("click",e=>{if(e.target===helpModal)closeHelp();});
+function showInstall(on){$("btnInstall").style.display=on?"inline-block":"none";const b2=$("btnInstall2");if(b2)b2.style.display=on?"inline-block":"none";}
+addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;showInstall(true);});
+async function doInstall(){ if(!deferredPrompt){openHelp();return;} deferredPrompt.prompt(); try{await deferredPrompt.userChoice;}catch(_){}
+  deferredPrompt=null; showInstall(false); }
+$("btnInstall").addEventListener("click",doInstall);
+{const b2=$("btnInstall2");if(b2)b2.addEventListener("click",doInstall);}
+addEventListener("appinstalled",()=>{deferredPrompt=null;showInstall(false);});
+
+/* ============ arranque ============ */
+if(!window.THREE){setStatus("No se pudo cargar el motor 3D (three.js). Revisa tu conexión.",true);}
+else{ initThree(); loadFontWeight("700Bold"); }
+
+/* registrar service worker (PWA / funciona sin conexión tras la 1ª vez) */
+if("serviceWorker" in navigator){ addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{})); }
+</script>
+</body>
+</html>
