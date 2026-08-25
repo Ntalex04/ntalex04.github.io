@@ -90,6 +90,9 @@
   .modal-card .muted{color:var(--mut);font-size:13px}
   .modal-close{float:right;background:none;border:0;color:var(--mut);font-size:24px;cursor:pointer;line-height:1;margin-top:-6px}
   .badge{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:0 7px;font-size:12px;color:var(--acc2)}
+  #note{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;
+    color:var(--mut);font-size:13px;max-width:80%;line-height:1.5;pointer-events:none;display:none}
+  #note.show{display:block}
 </style>
 </head>
 <body>
@@ -104,6 +107,7 @@
 <div class="wrap">
   <div id="stage">
     <div id="dims">—</div>
+    <div id="note"></div>
     <div id="hint">Arrastra para girar · rueda / pellizca para acercar</div>
   </div>
 
@@ -240,11 +244,12 @@ const FONT_FILES={
 };
 function loadFontWeight(key){
   const file=FONT_FILES[key]||FONT_FILES["700Bold"];
-  setStatus("Cargando tipografía…");
+  setStatus("Cargando tipografía…"); setStageNote("Cargando tipografía…");
   let i=0;
   const tryNext=()=>{
     if(i>=FONT_BASES.length){
       setStatus("No se pudo cargar la fuente automáticamente. Sube tu archivo .ttf con el botón de arriba.",true);
+      setStageNote("No se pudo cargar la tipografía. Toca 'Seleccionar archivo' y sube un .ttf.");
       return;
     }
     const url=FONT_BASES[i++]+file;
@@ -442,16 +447,25 @@ function meshTo3MF(tris){
     {name:enc.encode("3D/3dmodel.model"),data:enc.encode(model)}
   ]);
 }
-function saveBlob(name,data,mime){
-  const blob=new Blob([data],{type:mime||"application/octet-stream"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name;
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+function downloadFile(file){
+  const url=URL.createObjectURL(file);
+  const a=document.createElement("a"); a.href=url; a.download=file.name; a.rel="noopener";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
 }
-function exportMesh(basename,tris){
+async function exportMesh(basename,tris){
   if(!tris.length){setStatus("No hay geometría para exportar.",true);return;}
-  const fmt=$("fmt").value;
-  if(fmt==="stl"||fmt==="both") saveBlob(basename+".stl", trisToSTL(tris), "model/stl");
-  if(fmt==="3mf"||fmt==="both") setTimeout(()=>saveBlob(basename+".3mf", meshTo3MF(tris), "model/3mf"), fmt==="both"?300:0);
+  const fmt=$("fmt").value, files=[];
+  const mk=(bytes,ext)=>new File([bytes], basename+"."+ext, {type:"application/octet-stream"});
+  if(fmt==="stl"||fmt==="both") files.push(mk(trisToSTL(tris),"stl"));
+  if(fmt==="3mf"||fmt==="both") files.push(mk(meshTo3MF(tris),"3mf"));
+  // 1) apps instaladas / móvil: usar el menú Compartir (guardar en Archivos, Drive, etc.)
+  if(navigator.canShare){
+    try{ if(navigator.canShare({files})){ await navigator.share({files, title:basename}); return; } }
+    catch(e){ if(e && e.name==="AbortError") return; }
+  }
+  // 2) escritorio / navegador normal: descarga clásica
+  for(const f of files){ downloadFile(f); await new Promise(r=>setTimeout(r,500)); }
 }
 
 /* ============ parámetros ============ */
@@ -466,18 +480,22 @@ function readP(){
 
 /* ============ three.js preview ============ */
 let renderer,scene,camera,group,bodyMesh,tapaMesh,rotX=-0.5,rotY=0.6,dist=400,curBB=null;
+function setStageNote(msg){const n=$("note");if(!n)return;n.textContent=msg||"";n.classList.toggle("show",!!msg);}
 function initThree(){
   const stage=$("stage");
-  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  try{
+    renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  }catch(err){ setStageNote("Tu navegador no pudo iniciar el 3D (WebGL)."); setStatus("WebGL no disponible en este dispositivo.",true); return; }
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   renderer.setSize(stage.clientWidth,stage.clientHeight);
   stage.appendChild(renderer.domElement);
   scene=new THREE.Scene();
   camera=new THREE.PerspectiveCamera(38,stage.clientWidth/stage.clientHeight,1,5000);
   group=new THREE.Group(); scene.add(group);
-  scene.add(new THREE.HemisphereLight(0xbfd4ff,0x202028,0.9));
-  const d1=new THREE.DirectionalLight(0xffffff,0.9); d1.position.set(1,1.4,1.2); scene.add(d1);
-  const d2=new THREE.DirectionalLight(0xffd28a,0.5); d2.position.set(-1,-0.4,-0.6); scene.add(d2);
+  scene.add(new THREE.HemisphereLight(0xcfe0ff,0x20242c,1.15));
+  scene.add(new THREE.AmbientLight(0xffffff,0.35));
+  const d1=new THREE.DirectionalLight(0xffffff,1.15); d1.position.set(1,1.4,1.2); scene.add(d1);
+  const d2=new THREE.DirectionalLight(0xffd28a,0.6); d2.position.set(-1,-0.4,-0.6); scene.add(d2);
   addEventListener("resize",onResize);
   bindDrag(stage);
   animate();
@@ -508,7 +526,8 @@ function meshFromTris(tris){
 }
 function updatePreview(P){
   while(group.children.length)group.remove(group.children[0]);
-  if(!LETTERS.length){$("dims").textContent="—";return;}
+  if(!LETTERS.length){$("dims").textContent="—"; setStageNote(FONT?"Escribe un texto arriba.":"Cargando tipografía…"); return;}
+  setStageNote("");
   const withTray=$("bandeja").checked;
   const body=buildBody(LETTERS,P,withTray);
   // centrar
@@ -516,7 +535,7 @@ function updatePreview(P){
   for(const t of body)for(const v of t)for(let k=0;k<3;k++){mn[k]=Math.min(mn[k],v[k]);mx[k]=Math.max(mx[k],v[k]);}
   const ctr=[(mn[0]+mx[0])/2,(mn[1]+mx[1])/2,(mn[2]+mx[2])/2];
   const bg=meshFromTris(body); bg.translate(-ctr[0],-ctr[1],-ctr[2]);
-  bodyMesh=new THREE.Mesh(bg,new THREE.MeshStandardMaterial({color:0x2f3640,metalness:0.1,roughness:0.75,side:THREE.DoubleSide}));
+  bodyMesh=new THREE.Mesh(bg,new THREE.MeshStandardMaterial({color:0xccd2dc,metalness:0.05,roughness:0.6,side:THREE.DoubleSide}));
   group.add(bodyMesh);
   if($("vertapa").checked){
     const tp=buildTapa(LETTERS,P), tg=meshFromTris(tp);
